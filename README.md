@@ -3,6 +3,22 @@
 Log-structured merge-tree-based key-value stores (LSM-KVS) are widely used as write-optimized persistent storage engines for data-intensive applications. In recent years, disaggregated infrastructure has become the trend in data centers to achieve better resource utilization and management, and existing studies are focusing on optimizing LSM-KVS for disaggregated storage. However, the limited and imbalanced CPU, memory, and I/O resources among compute nodes still exist and cause explicit performance issues, especially in the write path.
 In this paper, we propose leveraging the shared disaggregated memory (DM) to address the aforementioned issues of the LSM-based storage engine, called DwaRF-LSM. First, we propose a novel DM-optimized memtable and dynamically offload them to DM to achieve write buffer extension with the fast transmission. Second, to address the performance challenges of accessing and searching memtables at DM, DwaRF-LSM proposes adaptive Read Delegation at DM using local CPUs. Third, DwaRF-LSM proposes Shard-Level Remote Flush, leveraging the sharing capability of memtables at DM to enable flexible and fine-grained flush execution on idle compute nodes, which effectively enhances write performance and improves cluster load balancing. We implemented DwaRF-LSM based on RocksDB and evaluated it in various tests with different workloads. Our evaluation shows that DwaRF-LSM effectively utilizes DM and outperforms Disaggregating-RocksDB (developed by Meta) by up to 136%.
 
+### Dependencies
+To run DwaRF-LSM, please install hadoop3.1.1 and RDMA packages.
+### Compilation
+```
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make rdma_server -j $(nproc)
+make remote_flush_worker -j $(nproc)
+make db_bench -j $(nproc)
+```
+### Run
+```
+./rdma_server [rdma_memory_size]
+./remote_flush_worker [memory_node_ip]
+./db_bench
+```
 ---
 
 
