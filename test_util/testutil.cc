@@ -554,6 +554,17 @@ namespace {
 // A hacky skip list mem table that triggers flush after number of entries.
 class SpecialMemTableRep : public MemTableRep {
  public:
+  void PackLocal(TransferService* node,
+                 size_t protection_bytes_per_key) const override {
+    int64_t msg = 0x2;
+    msg += (num_entries_flush_ << 8);
+    LOG("SpecialMemTableRep::PackLocal: start send", msg, " ",
+        num_entries_flush_);
+    node->send(&msg, sizeof(msg));
+    memtable_->PackLocal(node, protection_bytes_per_key);
+  }
+
+ public:
   explicit SpecialMemTableRep(Allocator* allocator, MemTableRep* memtable,
                               int num_entries_flush)
       : MemTableRep(allocator),
@@ -561,7 +572,9 @@ class SpecialMemTableRep : public MemTableRep {
         num_entries_flush_(num_entries_flush),
         num_entries_(0) {}
 
-  virtual KeyHandle Allocate(const size_t len, char** buf) override {
+  virtual KeyHandle Allocate(const size_t len, char** buf,
+                             char** kv_buf = nullptr,
+                             const char* = nullptr) override {
     return memtable_->Allocate(len, buf);
   }
 
@@ -643,6 +656,14 @@ class SpecialSkipListFactory : public MemTableRepFactory {
         factory_.CreateMemTableRep(compare, allocator, transform, nullptr),
         num_entries_flush_);
   }
+
+  MemTableRep* CreateExistMemTableWrapper(
+      const Allocator* arna, const MemTableRep* memtable) override {
+    return new SpecialMemTableRep(const_cast<Allocator*>(arna),
+                                  const_cast<MemTableRep*>(memtable),
+                                  num_entries_flush_);
+  }
+
   static const char* kClassName() { return "SpecialSkipListFactory"; }
   virtual const char* Name() const override { return kClassName(); }
   std::string GetId() const override {
@@ -709,7 +730,6 @@ int RegisterTestObjects(ObjectLibrary& library, const std::string& arg) {
       });
   return static_cast<int>(library.GetFactoryCount(&num_types));
 }
-
 
 void RegisterTestLibrary(const std::string& arg) {
   static bool registered = false;
